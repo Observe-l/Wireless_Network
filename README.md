@@ -26,6 +26,21 @@ Configuration: 2 MB/s, UDP protocol
 | 2                             | 14%         |                   |
 | 2.5                           | 20%         | 1.7 MB/s          |
 | 3                             | 45%         |                   |
+| 3.5                           |             |                   |
+| unconstrained                 |             |                   |
 
 ### Flow Control
 
+Configuration: 2 MB/s, UDP protocol, background flow: TCP
+
+| background trafic flow (MB/s) | packet loss | UDP sending speed |
+| ----------------------------- | ----------- | ----------------- |
+| 0                             | 0%          | 2 MB/s            |
+| 0.5                           | 0%          | 2 MB/s            |
+| 1                             | 0%          | 2 MB/s            |
+| 1.5                           | 0%          |                   |
+| 2.0                           | 0%          | 1.2-1.6           |
+| 2.5                           | 0%          |                   |
+| 3                             | 4%          |                   |
+| 3.5                           | 8%          |                   |
+| unconstrained                 |             |                   |
