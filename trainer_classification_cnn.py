@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 from tensorflow import keras
-from tensorflow.keras import layers
+# from tensorflow.keras import layers
 from sklearn import preprocessing
 from sklearn.metrics import classification_report, confusion_matrix
 
@@ -39,14 +39,14 @@ def single_train(x_train,y_train):
         mlflow.tensorflow.autolog(log_models=True, disable=False, registered_model_name=None)
         model = keras.Sequential(
             [
-                layers.Conv1D(32,5, activation='relu',padding='causal',input_shape=i_shape),
-                layers.Conv1D(64,7, activation='relu',padding='causal'),
-                layers.Conv1D(128,11, activation='relu',padding='causal'),
-                layers.Conv1D(256,13, activation='relu',padding='causal'),
-                layers.Conv1D(512,15, activation='relu',padding='causal'),
-                layers.Dense(100, activation="relu"),
-                layers.Dropout(0.5),
-                layers.Dense(1,activation='sigmoid')
+                keras.layers.Conv1D(32,5, activation='relu',padding='causal',input_shape=i_shape),
+                keras.layers.Conv1D(64,7, activation='relu',padding='causal'),
+                keras.layers.Conv1D(128,11, activation='relu',padding='causal'),
+                keras.layers.Conv1D(256,13, activation='relu',padding='causal'),
+                keras.layers.Conv1D(512,15, activation='relu',padding='causal'),
+                keras.layers.Dense(100, activation="relu"),
+                keras.layers.Dropout(0.5),
+                keras.layers.Dense(1,activation='sigmoid')
             ]
         )
 

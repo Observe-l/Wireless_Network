@@ -3,6 +3,8 @@ import pandas as pd
 from tensorflow import keras
 # from tensorflow.keras import layers
 from sklearn import preprocessing
+from sklearn.metrics import classification_report, confusion_matrix
+
 import mlflow
 import socket
 import json
@@ -10,26 +12,24 @@ import pickle
 
 from utils.udp_req import udp_send, udp_server
 
-from hyperopt import hp, tpe, fmin, Trials, SparkTrials, STATUS_OK
+# import os
+# os.environ["CUDA_VISIBLE_DEVICES"]="-1"
 
-from pathlib import Path
+MODEL_PORT = 9768
+DATA_PORT = 9860
 
-import os
-os.environ["CUDA_VISIBLE_DEVICES"]="-1"
-
-MODEL_PORT = 10652
-DATA_PORT = 10653
-
-FILE_NAME = "re_train.txt"
-DATA_TMP = "re_rec.txt"
-ORIGIN_DATA = 'CMAPSSData/train_FD003.txt'
+FILE_NAME = "cl_train.txt"
+DATA_TMP = "cl_rec.txt"
+ORIGIN_DATA = 'CMAPSSData/train_FD001.txt'
+TEST_DATA = 'CMAPSSData/test_FD001.txt'
 TIME_OUT = 3
-MODEL_NAME = "regression_loss_0"
-REMAIN_NUM = 35
+MODEL_NAME = "classification_test"
+EXP_NAME = "Model Evaluate"
+REMAIN_NUM = 100
 
 def single_train(x_train,y_train):
     client = mlflow.tracking.MlflowClient()
-    mlflow.set_experiment("cmapss_udp")
+    mlflow.set_experiment(EXP_NAME)
 
     i_shape = [25, 25]
 
@@ -39,26 +39,24 @@ def single_train(x_train,y_train):
         mlflow.tensorflow.autolog(log_models=True, disable=False, registered_model_name=None)
         model = keras.Sequential(
             [
-                keras.layers.LSTM(4,return_sequences=True,activation='relu',input_shape=i_shape),
-                keras.layers.Dropout(0.2),
-                keras.layers.LSTM(8,return_sequences=True,activation='relu'),
-                keras.layers.Dropout(0.2),
-                keras.layers.LSTM(16,return_sequences=False,activation='relu'),
-                keras.layers.Dropout(0.5),
-                keras.layers.Dense(8, activation="relu"),
-                keras.layers.Dense(1,activation='linear')
+                keras.layers.Bidirectional(keras.layers.LSTM(32,return_sequences=True,activation='relu'),input_shape=i_shape),
+                keras.layers.Bidirectional(keras.layers.LSTM(64,return_sequences=True,activation='relu')),
+                keras.layers.Bidirectional(keras.layers.LSTM(32,return_sequences=True,activation='relu')),
+                # keras.layers.Dense(100, activation="relu"),
+                # keras.layers.Dropout(0.5),
+                keras.layers.Dense(1,activation='sigmoid')
             ]
         )
 
         batch_size = 128
         epochs = 20
 
-        model.compile(loss="mean_squared_error", optimizer="adam", metrics=["mean_absolute_error"])
+        model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy"])
 
         history = model.fit(x_train, y_train, batch_size=batch_size, epochs=epochs, validation_split=0.05)
         # mlflow.sklearn.log_model(model,"model")
         # score = model.evaluate(x_test, y_test, verbose=0)
-        # score = -history.history['accuracy'][-1]
+        score = -history.history['accuracy'][-1]
     result = mlflow.register_model(
         f"runs:/{run_id}/model",
         MODEL_NAME
@@ -132,7 +130,7 @@ def data_load(file_name:str = FILE_NAME, sequence_length=25):
     # generate sequences and convert to numpy array
     seq_array = np.concatenate(list(seq_gen)).astype(np.float32)
     # generate labels (generated from "label1" col as its binary classification)
-    label_gen = [gen_labels(train_df[train_df['id']==id], sequence_length, ['RUL']) 
+    label_gen = [gen_labels(train_df[train_df['id']==id], sequence_length, ['label1']) 
                 for id in train_df['id'].unique()]
     label_array = np.concatenate(label_gen).astype(np.float32)
     return seq_array, label_array
@@ -143,9 +141,7 @@ def update_data(train_data:pd.DataFrame):
     # update file
     train_data.loc[train_data[0].isin(tmp_idx)].to_csv(FILE_NAME, sep=' ', header=False,index=False)
 
-if __name__ == "__main__":
-    # Tracking the mysql database
-    mlflow.set_tracking_uri("http://localhost:5000")
+def main():
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     start_flag = True
     # initialize data file
@@ -154,7 +150,7 @@ if __name__ == "__main__":
     # Init data file
     tmp_data = pd.read_csv(ORIGIN_DATA, sep=" ",header=None)
     tmp_idx = np.sort(tmp_data[0].unique())[:REMAIN_NUM]
-    tmp_data.loc[tmp_data[0].isin(tmp_idx)].to_csv(FILE_NAME, sep=' ', header=False,index=False)
+    tmp_data.loc[tmp_data[0].isin(tmp_idx)].to_csv(FILE_NAME, sep=" ", header=False,index=False)
     tmp_data = pd.read_csv(FILE_NAME, sep=" ",header=None)
     # Init model
     x_train, y_train = data_load()
@@ -184,3 +180,37 @@ if __name__ == "__main__":
             start_flag = False
             with open(DATA_TMP,'a') as f:
                 f.write(data.decode('utf-8'))
+
+def model_train():
+    tmp_data = pd.read_csv(ORIGIN_DATA, sep=" ",header=None)
+    x_train, y_train = data_load(file_name=ORIGIN_DATA)
+    model_version = single_train(x_train, y_train)
+    print(f"Training completed. The latest model version is: {model_version}")
+
+def model_eva():
+    model = mlflow.pyfunc.load_model(
+        model_uri=f"models:/{MODEL_NAME}/Production"
+    )
+    testdata, testlabel = data_load(file_name=TEST_DATA)
+    target_name = ['Normal','Broken']
+
+    label_pre = model.predict(testdata)
+    # Set the threshold = 0.5
+    label_pre = (label_pre>0.5).astype(np.int64)
+    label_pre = label_pre[:,1]
+    accuracy = np.sum(label_pre==testlabel) / label_pre.shape[0]
+    pr_acc = "Accuracy is:" + str(accuracy) + "\n"
+    print(pr_acc)
+    result = confusion_matrix(testlabel, label_pre,normalize='pred')
+    print("Confusion matrix is:\n",result,"\n")
+    report = classification_report(testlabel, label_pre, target_names=target_name)
+    pr_rep = "Classification report:\n" + report
+    print(pr_rep)
+
+if __name__ == "__main__":
+    # Tracking the mysql database
+    mlflow.set_tracking_uri("http://localhost:5000")
+    # main()
+    model_train()
+    model_eva()
+
