@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import tensorflow.keras.backend as K
 from tensorflow import keras
 # from tensorflow.keras import layers
 from sklearn import preprocessing
@@ -8,28 +9,29 @@ import socket
 import json
 import pickle
 
-from utils.udp_req import udp_send, udp_server
+from udp_req import udp_send, udp_server
 
-from hyperopt import hp, tpe, fmin, Trials, SparkTrials, STATUS_OK
-
-from pathlib import Path
-
-import os
-os.environ["CUDA_VISIBLE_DEVICES"]="-1"
+# import os
+# os.environ["CUDA_VISIBLE_DEVICES"]="-1"
 
 MODEL_PORT = 10652
 DATA_PORT = 10653
 
 FILE_NAME = "re_train.txt"
 DATA_TMP = "re_rec.txt"
-ORIGIN_DATA = 'CMAPSSData/train_FD003.txt'
+ORIGIN_DATA = 'CMAPSSData/train_FD001.txt'
+TEST_DATA = 'CMAPSSData/test_FD001.txt'
+RUL_FILE = "CMAPSSData/RUL_FD001.txt"
 TIME_OUT = 3
-MODEL_NAME = "regression_loss_0"
-REMAIN_NUM = 35
+MODEL_NAME = "regression_test"
+REMAIN_NUM = 100
+
+def root_mean_squared_error(y_true, y_pred):
+        return K.sqrt(K.mean(K.square(y_pred - y_true))) 
 
 def single_train(x_train,y_train):
     client = mlflow.tracking.MlflowClient()
-    mlflow.set_experiment("cmapss_udp")
+    mlflow.set_experiment("Regression Evaluate")
 
     i_shape = [25, 25]
 
@@ -39,13 +41,11 @@ def single_train(x_train,y_train):
         mlflow.tensorflow.autolog(log_models=True, disable=False, registered_model_name=None)
         model = keras.Sequential(
             [
-                keras.layers.LSTM(4,return_sequences=True,activation='relu',input_shape=i_shape),
-                keras.layers.Dropout(0.2),
-                keras.layers.LSTM(8,return_sequences=True,activation='relu'),
-                keras.layers.Dropout(0.2),
-                keras.layers.LSTM(16,return_sequences=False,activation='relu'),
+                keras.layers.LSTM(32,return_sequences=True,activation='tanh',input_shape=i_shape),
+                keras.layers.LSTM(64,return_sequences=True,activation='tanh'),
+                keras.layers.LSTM(32,return_sequences=False,activation='tanh'),
+                keras.layers.Dense(100, activation="relu"),
                 keras.layers.Dropout(0.5),
-                keras.layers.Dense(8, activation="relu"),
                 keras.layers.Dense(1,activation='linear')
             ]
         )
@@ -53,7 +53,7 @@ def single_train(x_train,y_train):
         batch_size = 128
         epochs = 20
 
-        model.compile(loss="mean_squared_error", optimizer="adam", metrics=["mean_absolute_error"])
+        model.compile(loss="mean_squared_error", optimizer="adam", metrics=["mean_squared_error"])
 
         history = model.fit(x_train, y_train, batch_size=batch_size, epochs=epochs, validation_split=0.05)
         # mlflow.sklearn.log_model(model,"model")
@@ -96,7 +96,7 @@ def gen_labels(id_df, seq_length, label):
     num_elements = data_array.shape[0]
     return data_array[seq_length:num_elements, :]
 
-def data_load(file_name:str = FILE_NAME, sequence_length=25):
+def data_load(file_name:str = FILE_NAME, sequence_length=25, model_test:bool = False):
     # Read data from txt file
     train_df = pd.read_csv(file_name, sep=" ",header=None)
     # print('latest machine: ',np.sort(train_df[0].unique())[::1][0])
@@ -107,7 +107,17 @@ def data_load(file_name:str = FILE_NAME, sequence_length=25):
     # Generate labels. If RUL < trashold, label = 1, o.w 0
     rul = pd.DataFrame(train_df.groupby('id')['cycle'].max()).reset_index()
     rul.columns = ['id', 'max']
-    train_df = train_df.merge(rul, on=['id'], how='left')
+    if model_test:
+        truth_df = pd.read_csv(RUL_FILE, sep=" ", header=None)
+        truth_df.drop(truth_df.columns[[1]], axis=1, inplace=True)
+        truth_df.columns = ['more']
+        truth_df['id'] = truth_df.index + 1
+        truth_df['max'] = rul['max'] + truth_df['more']
+        truth_df.drop('more', axis=1, inplace=True)
+    else:
+        truth_df = rul
+
+    train_df = train_df.merge(truth_df, on=['id'], how='left')
 
     train_df['RUL'] = train_df['max'] - train_df['cycle']
     train_df.drop('max', axis=1, inplace=True)
@@ -143,9 +153,7 @@ def update_data(train_data:pd.DataFrame):
     # update file
     train_data.loc[train_data[0].isin(tmp_idx)].to_csv(FILE_NAME, sep=' ', header=False,index=False)
 
-if __name__ == "__main__":
-    # Tracking the mysql database
-    mlflow.set_tracking_uri("http://localhost:5000")
+def main():
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     start_flag = True
     # initialize data file
@@ -184,3 +192,29 @@ if __name__ == "__main__":
             start_flag = False
             with open(DATA_TMP,'a') as f:
                 f.write(data.decode('utf-8'))
+
+def model_train():
+    x_train, y_train = data_load(file_name=ORIGIN_DATA)
+    model_version = single_train(x_train, y_train)
+    print(f"Training completed. The latest model version is: {model_version}")
+
+def model_eva():
+    model = mlflow.pyfunc.load_model(
+        model_uri=f"models:/{MODEL_NAME}/Production"
+    )
+    # testdata, testlabel = data_load(file_name=TEST_DATA,model_test=True)
+    testdata, testlabel = data_load(file_name=ORIGIN_DATA)
+
+    label_pre = model.predict(testdata)[:,0]
+
+    result_rmse = root_mean_squared_error(testlabel,label_pre)
+    pre_rmse = 'reult is:' + str(result_rmse.numpy()) + '\n'
+    print(pre_rmse)
+
+if __name__ == "__main__":
+    # Tracking the mysql database
+    mlflow.set_tracking_uri("http://localhost:5000")
+    # main()
+    model_train()
+    model_eva()
+

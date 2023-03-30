@@ -10,7 +10,7 @@ import socket
 import json
 import pickle
 
-from utils.udp_req import udp_send, udp_server
+from udp_req import udp_send, udp_server
 
 # import os
 # os.environ["CUDA_VISIBLE_DEVICES"]="-1"
@@ -22,6 +22,7 @@ FILE_NAME = "cl_train.txt"
 DATA_TMP = "cl_rec.txt"
 ORIGIN_DATA = 'CMAPSSData/train_FD001.txt'
 TEST_DATA = 'CMAPSSData/test_FD001.txt'
+RUL_FILE = "CMAPSSData/RUL_FD001.txt"
 TIME_OUT = 3
 MODEL_NAME = "classification_test"
 EXP_NAME = "Model Evaluate"
@@ -39,13 +40,11 @@ def single_train(x_train,y_train):
         mlflow.tensorflow.autolog(log_models=True, disable=False, registered_model_name=None)
         model = keras.Sequential(
             [
-                keras.layers.Conv1D(32,5, activation='relu',padding='causal',input_shape=i_shape),
-                keras.layers.Conv1D(64,7, activation='relu',padding='causal'),
-                keras.layers.Conv1D(128,11, activation='relu',padding='causal'),
-                keras.layers.Conv1D(256,13, activation='relu',padding='causal'),
-                keras.layers.Conv1D(512,15, activation='relu',padding='causal'),
-                keras.layers.Dense(100, activation="relu"),
-                keras.layers.Dropout(0.5),
+                keras.layers.Bidirectional(keras.layers.LSTM(32,return_sequences=True,activation='relu'),input_shape=i_shape),
+                keras.layers.Bidirectional(keras.layers.LSTM(64,return_sequences=True,activation='relu')),
+                keras.layers.Bidirectional(keras.layers.LSTM(32,return_sequences=True,activation='relu')),
+                # keras.layers.Dense(100, activation="relu"),
+                # keras.layers.Dropout(0.5),
                 keras.layers.Dense(1,activation='sigmoid')
             ]
         )
@@ -96,7 +95,7 @@ def gen_labels(id_df, seq_length, label):
     num_elements = data_array.shape[0]
     return data_array[seq_length:num_elements, :]
 
-def data_load(file_name:str = FILE_NAME, sequence_length=25):
+def data_load(file_name:str = FILE_NAME, sequence_length=25, model_test:bool = False):
     # Read data from txt file
     train_df = pd.read_csv(file_name, sep=" ",header=None)
     # print('latest machine: ',np.sort(train_df[0].unique())[::1][0])
@@ -107,7 +106,17 @@ def data_load(file_name:str = FILE_NAME, sequence_length=25):
     # Generate labels. If RUL < trashold, label = 1, o.w 0
     rul = pd.DataFrame(train_df.groupby('id')['cycle'].max()).reset_index()
     rul.columns = ['id', 'max']
-    train_df = train_df.merge(rul, on=['id'], how='left')
+    if model_test:
+        truth_df = pd.read_csv(RUL_FILE, sep=" ", header=None)
+        truth_df.drop(truth_df.columns[[1]], axis=1, inplace=True)
+        truth_df.columns = ['more']
+        truth_df['id'] = truth_df.index + 1
+        truth_df['max'] = rul['max'] + truth_df['more']
+        truth_df.drop('more', axis=1, inplace=True)
+    else:
+        truth_df = rul
+
+    train_df = train_df.merge(truth_df, on=['id'], how='left')
 
     train_df['RUL'] = train_df['max'] - train_df['cycle']
     train_df.drop('max', axis=1, inplace=True)
@@ -193,7 +202,7 @@ def model_eva():
     model = mlflow.pyfunc.load_model(
         model_uri=f"models:/{MODEL_NAME}/Production"
     )
-    testdata, testlabel = data_load(file_name=TEST_DATA)
+    testdata, testlabel = data_load(file_name=TEST_DATA,model_test=True)
     target_name = ['Normal','Broken']
 
     label_pre = model.predict(testdata)

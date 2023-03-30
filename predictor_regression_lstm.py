@@ -86,7 +86,7 @@ def data_load(sequence_length=25):
 def eval_model(model:mlflow.pyfunc.PyFuncModel, testdata, testlabel):
     mae = keras.losses.MeanAbsoluteError()
     label_pre = model.predict(testdata)[:,0]
-    result_mae = mae(test_label, label_pre)
+    result_mae = mae(testlabel, label_pre)
     pre_mae = 'reult is:' + str(result_mae.numpy()) + '\n'
     print(pre_mae)
     with open(RESULT,'a') as f:
