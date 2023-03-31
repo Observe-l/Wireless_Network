@@ -40,9 +40,9 @@ def single_train(x_train,y_train):
         mlflow.tensorflow.autolog(log_models=True, disable=False, registered_model_name=None)
         model = keras.Sequential(
             [
-                keras.layers.Bidirectional(keras.layers.LSTM(32,return_sequences=True,activation='relu'),input_shape=i_shape),
-                keras.layers.Bidirectional(keras.layers.LSTM(64,return_sequences=True,activation='relu')),
-                keras.layers.Bidirectional(keras.layers.LSTM(32,return_sequences=True,activation='relu')),
+                keras.layers.Bidirectional(keras.layers.LSTM(32,return_sequences=True,activation='tanh'),input_shape=i_shape),
+                keras.layers.Bidirectional(keras.layers.LSTM(64,return_sequences=True,activation='tanh')),
+                keras.layers.Bidirectional(keras.layers.LSTM(32,return_sequences=True,activation='tanh')),
                 # keras.layers.Dense(100, activation="relu"),
                 # keras.layers.Dropout(0.5),
                 keras.layers.Dense(1,activation='sigmoid')
@@ -53,6 +53,7 @@ def single_train(x_train,y_train):
         epochs = 20
 
         model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy"])
+        model.summary()
 
         history = model.fit(x_train, y_train, batch_size=batch_size, epochs=epochs, validation_split=0.05)
         # mlflow.sklearn.log_model(model,"model")
@@ -203,6 +204,7 @@ def model_eva():
         model_uri=f"models:/{MODEL_NAME}/Production"
     )
     testdata, testlabel = data_load(file_name=TEST_DATA,model_test=True)
+    print(testlabel.shape)
     target_name = ['Normal','Broken']
 
     label_pre = model.predict(testdata)
@@ -222,6 +224,6 @@ if __name__ == "__main__":
     # Tracking the mysql database
     mlflow.set_tracking_uri("http://localhost:5000")
     # main()
-    model_train()
+    # model_train()
     model_eva()
 

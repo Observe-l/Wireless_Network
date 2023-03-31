@@ -202,18 +202,18 @@ def model_eva():
     model = mlflow.pyfunc.load_model(
         model_uri=f"models:/{MODEL_NAME}/Production"
     )
-    mse = keras.losses.MeanSquaredError()
-    testdata, testlabel = data_load(file_name=TEST_DATA,model_test=True)
-    # testdata, testlabel = data_load(file_name=ORIGIN_DATA)
+    # testdata, testlabel = data_load(file_name=TEST_DATA,model_test=True)
+    testdata, testlabel = data_load(file_name=ORIGIN_DATA)
 
     label_pre = model.predict(testdata)[:,0]
 
-    # result_rmse = root_mean_squared_error(testlabel,label_pre)
-    result_rmse = mse(testlabel,label_pre)
+    result_rmse = root_mean_squared_error(testlabel,label_pre)
     pre_rmse = 'reult is:' + str(result_rmse.numpy()) + '\n'
     print(pre_rmse)
 
-# mlflow.set_tracking_uri("http://localhost:5000")
+mlflow.set_tracking_uri("http://localhost:5000")
+
+model_eva()
 
 if __name__ == "__main__":
     # Tracking the mysql database

@@ -40,9 +40,9 @@ def single_train(x_train,y_train):
         mlflow.tensorflow.autolog(log_models=True, disable=False, registered_model_name=None)
         model = keras.Sequential(
             [
-                keras.layers.LSTM(32,return_sequences=True,activation='relu',input_shape=i_shape),
-                keras.layers.LSTM(64,return_sequences=True,activation='relu'),
-                keras.layers.LSTM(32,return_sequences=True,activation='relu'),
+                keras.layers.LSTM(32,return_sequences=True,activation='tanh',input_shape=i_shape),
+                keras.layers.LSTM(64,return_sequences=True,activation='tanh'),
+                keras.layers.LSTM(32,return_sequences=True,activation='tanh'),
                 keras.layers.Dense(100, activation="relu"),
                 keras.layers.Dropout(0.5),
                 keras.layers.Dense(1,activation='sigmoid')
