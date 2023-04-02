@@ -123,6 +123,7 @@ def data_load(file_name:str = FILE_NAME, sequence_length=25, model_test:bool = F
     train_df = train_df.merge(truth_df, on=['id'], how='left')
 
     train_df['RUL'] = train_df['max'] - train_df['cycle']
+    train_df.loc[train_df['RUL']>=130,'RUL'] = 130
     train_df.drop('max', axis=1, inplace=True)
 
     # generate label1 column for training data
@@ -209,11 +210,12 @@ def model_eva():
     testdata, testlabel = data_load(file_name=TEST_DATA,model_test=True)
     # testdata, testlabel = data_load(file_name=ORIGIN_DATA)
 
-    label_pre = model.predict(testdata)[:,0]
+    label_pre = model.predict(testdata)
+    print(label_pre)
 
-    # result_rmse = root_mean_squared_error(testlabel,label_pre)
-    result_rmse = mse(testlabel,label_pre)
-    pre_rmse = 'reult is:' + str(result_rmse.numpy()) + '\n'
+    result_rmse = root_mean_squared_error(testlabel,label_pre)
+    result_mse = mse(testlabel,label_pre)
+    pre_rmse = 'RMSE is:' + str(result_rmse.numpy()) + '\n' + 'MSE is:' + str(result_mse.numpy()) + '\n'
     print(pre_rmse)
 
 # mlflow.set_tracking_uri("http://localhost:5000")
@@ -222,6 +224,6 @@ if __name__ == "__main__":
     # Tracking the mysql database
     mlflow.set_tracking_uri("http://localhost:5000")
     # main()
-    model_train()
+    # model_train()
     model_eva()
 
