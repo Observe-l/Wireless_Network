@@ -1,3 +1,7 @@
+import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2' 
+# os.environ["CUDA_VISIBLE_DEVICES"]="-1"
+
 import numpy as np
 import pandas as pd
 import tensorflow.keras.backend as K
@@ -11,17 +15,15 @@ import pickle
 
 from udp_req import udp_send, udp_server
 
-# import os
-# os.environ["CUDA_VISIBLE_DEVICES"]="-1"
 
 MODEL_PORT = 10652
 DATA_PORT = 10653
 
 FILE_NAME = "re_train.txt"
 DATA_TMP = "re_rec.txt"
-ORIGIN_DATA = '/home/lwh/Documents/Code/Wireless_Network/CMAPSSData/train_FD001.txt'
-TEST_DATA = '/home/lwh/Documents/Code/Wireless_Network/CMAPSSData/test_FD001.txt'
-RUL_FILE = "/home/lwh/Documents/Code/Wireless_Network/CMAPSSData/RUL_FD001.txt"
+ORIGIN_DATA = 'CMAPSSData/train_FD001.txt'
+TEST_DATA = 'CMAPSSData/test_FD001.txt'
+RUL_FILE = "CMAPSSData/RUL_FD001.txt"
 TIME_OUT = 3
 MODEL_NAME = "regression_test"
 REMAIN_NUM = 100
@@ -54,6 +56,7 @@ def single_train(x_train,y_train):
         epochs = 20
 
         model.compile(loss="mean_squared_error", optimizer="adam", metrics=["mean_squared_error"])
+        model.summary()
 
         history = model.fit(x_train, y_train, batch_size=batch_size, epochs=epochs, validation_split=0.05)
         # mlflow.sklearn.log_model(model,"model")
@@ -219,6 +222,6 @@ if __name__ == "__main__":
     # Tracking the mysql database
     mlflow.set_tracking_uri("http://localhost:5000")
     # main()
-    # model_train()
+    model_train()
     model_eva()
 

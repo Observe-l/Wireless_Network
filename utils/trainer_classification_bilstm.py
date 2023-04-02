@@ -1,3 +1,7 @@
+import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2' 
+# os.environ["CUDA_VISIBLE_DEVICES"]="-1"
+
 import numpy as np
 import pandas as pd
 from tensorflow import keras
@@ -12,8 +16,7 @@ import pickle
 
 from udp_req import udp_send, udp_server
 
-# import os
-# os.environ["CUDA_VISIBLE_DEVICES"]="-1"
+
 
 MODEL_PORT = 9768
 DATA_PORT = 9860
@@ -224,6 +227,6 @@ if __name__ == "__main__":
     # Tracking the mysql database
     mlflow.set_tracking_uri("http://localhost:5000")
     # main()
-    # model_train()
+    model_train()
     model_eva()
 

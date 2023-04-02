@@ -1,3 +1,7 @@
+import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2' 
+# os.environ["CUDA_VISIBLE_DEVICES"]="-1"
+
 import numpy as np
 import pandas as pd
 from tensorflow import keras
@@ -11,9 +15,6 @@ import json
 import pickle
 
 from udp_req import udp_send, udp_server
-
-# import os
-# os.environ["CUDA_VISIBLE_DEVICES"]="-1"
 
 MODEL_PORT = 9768
 DATA_PORT = 9860
@@ -55,6 +56,7 @@ def single_train(x_train,y_train):
         epochs = 20
 
         model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy"])
+        model.summary()
 
         history = model.fit(x_train, y_train, batch_size=batch_size, epochs=epochs, validation_split=0.05)
         # mlflow.sklearn.log_model(model,"model")
