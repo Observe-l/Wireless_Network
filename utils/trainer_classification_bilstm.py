@@ -1,6 +1,6 @@
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2' 
-# os.environ["CUDA_VISIBLE_DEVICES"]="-1"
+os.environ["CUDA_VISIBLE_DEVICES"]="-1"
 
 import numpy as np
 import pandas as pd
@@ -10,30 +10,24 @@ from sklearn import preprocessing
 from sklearn.metrics import classification_report, confusion_matrix
 
 import mlflow
-import socket
-import json
-import pickle
 
 from udp_req import udp_send, udp_server
 
-
-
-MODEL_PORT = 9768
+# MODEL_PORT = 9768
 DATA_PORT = 9860
 
-FILE_NAME = "cl_train.txt"
-DATA_TMP = "cl_rec.txt"
+FILE_NAME = "tmp_data/loss0_cl_bilstm_train.txt"
+DATA_TMP = "tmp_data/loss0_cl_bilstm_rec.txt"
 ORIGIN_DATA = 'CMAPSSData/train_FD001.txt'
 TEST_DATA = 'CMAPSSData/test_FD001.txt'
 RUL_FILE = "CMAPSSData/RUL_FD001.txt"
 TIME_OUT = 3
-MODEL_NAME = "classification_test"
-EXP_NAME = "Model Evaluate"
-REMAIN_NUM = 100
+MODEL_NAME = "loss0_classification_bilstm"
+REMAIN_NUM = 35
 
 def single_train(x_train,y_train):
     client = mlflow.tracking.MlflowClient()
-    mlflow.set_experiment(EXP_NAME)
+    mlflow.set_experiment("Classfication Evaluate")
 
     i_shape = [25, 25]
 
@@ -46,8 +40,8 @@ def single_train(x_train,y_train):
                 keras.layers.Bidirectional(keras.layers.LSTM(32,return_sequences=True,activation='tanh'),input_shape=i_shape),
                 keras.layers.Bidirectional(keras.layers.LSTM(64,return_sequences=True,activation='tanh')),
                 keras.layers.Bidirectional(keras.layers.LSTM(32,return_sequences=True,activation='tanh')),
-                # keras.layers.Dense(100, activation="relu"),
-                # keras.layers.Dropout(0.5),
+                keras.layers.Dense(100, activation="relu"),
+                keras.layers.Dropout(0.5),
                 keras.layers.Dense(1,activation='sigmoid')
             ]
         )
@@ -157,7 +151,6 @@ def update_data(train_data:pd.DataFrame):
     train_data.loc[train_data[0].isin(tmp_idx)].to_csv(FILE_NAME, sep=' ', header=False,index=False)
 
 def main():
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     start_flag = True
     # initialize data file
     f = open(DATA_TMP,'w')
@@ -170,7 +163,6 @@ def main():
     # Init model
     x_train, y_train = data_load()
     model_version = single_train(x_train, y_train)
-    sock.connect(("localhost",MODEL_PORT))
 
 
     while(True):
@@ -188,8 +180,6 @@ def main():
             print(x_train.shape)
             # model_version = hyper_opt(x_train=x_train,y_train=y_train,maxevals=2)
             model_version = single_train(x_train, y_train)
-            tmp_train_msg = f'model_version: {model_version}'
-            sock.sendall(tmp_train_msg.encode())
             print(f"Retraining completed. The latest model version is: {model_version}")
         else:
             start_flag = False
@@ -226,7 +216,7 @@ def model_eva():
 if __name__ == "__main__":
     # Tracking the mysql database
     mlflow.set_tracking_uri("http://localhost:5000")
-    # main()
-    model_train()
-    model_eva()
+    main()
+    # model_train()
+    # model_eva()
 

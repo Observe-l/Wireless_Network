@@ -7,6 +7,9 @@ import time
 UDP_IP = ''
 buf = 1024
 
+'''
+start flag means begin to transfer first data
+'''
 def udp_server(port, timeout = 5, start_flag=False):
     sk = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sk.bind((UDP_IP, port))

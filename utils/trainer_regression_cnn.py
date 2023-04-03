@@ -1,6 +1,6 @@
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2' 
-# os.environ["CUDA_VISIBLE_DEVICES"]="-1"
+os.environ["CUDA_VISIBLE_DEVICES"]="-1"
 
 import numpy as np
 import pandas as pd
@@ -16,17 +16,17 @@ import pickle
 from udp_req import udp_send, udp_server
 
 
-MODEL_PORT = 10652
-DATA_PORT = 10653
+# MODEL_PORT = 10652
+DATA_PORT = 10652
 
-FILE_NAME = "re_train.txt"
-DATA_TMP = "re_rec.txt"
+FILE_NAME = "tmp_data/loss0_re_cnn_train.txt"
+DATA_TMP = "tmp_data/loss0_re_cnn_rec.txt"
 ORIGIN_DATA = 'CMAPSSData/train_FD001.txt'
 TEST_DATA = 'CMAPSSData/test_FD001.txt'
 RUL_FILE = "CMAPSSData/RUL_FD001.txt"
 TIME_OUT = 3
-MODEL_NAME = "regression_test"
-REMAIN_NUM = 100
+MODEL_NAME = "loss0_regression_cnn"
+REMAIN_NUM = 35
 
 def root_mean_squared_error(y_true, y_pred):
         return K.sqrt(K.mean(K.square(y_pred - y_true))) 
@@ -160,7 +160,6 @@ def update_data(train_data:pd.DataFrame):
     train_data.loc[train_data[0].isin(tmp_idx)].to_csv(FILE_NAME, sep=' ', header=False,index=False)
 
 def main():
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     start_flag = True
     # initialize data file
     f = open(DATA_TMP,'w')
@@ -173,7 +172,6 @@ def main():
     # Init model
     x_train, y_train = data_load()
     model_version = single_train(x_train, y_train)
-    sock.connect(("localhost",MODEL_PORT))
 
 
     while(True):
@@ -191,8 +189,6 @@ def main():
             print(x_train.shape)
             # model_version = hyper_opt(x_train=x_train,y_train=y_train,maxevals=2)
             model_version = single_train(x_train, y_train)
-            tmp_train_msg = f'model_version: {model_version}'
-            sock.sendall(tmp_train_msg.encode())
             print(f"Retraining completed. The latest model version is: {model_version}")
         else:
             start_flag = False
@@ -223,7 +219,7 @@ def model_eva():
 if __name__ == "__main__":
     # Tracking the mysql database
     mlflow.set_tracking_uri("http://localhost:5000")
-    # main()
-    model_train()
-    model_eva()
+    main()
+    # model_train()
+    # model_eva()
 

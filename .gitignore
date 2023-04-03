@@ -1,3 +1,4 @@
 *.txt
 CMAPSSData/*
 __pycache__/
+tmp_data/
