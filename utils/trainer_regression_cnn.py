@@ -1,6 +1,5 @@
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2' 
-os.environ["CUDA_VISIBLE_DEVICES"]="-1"
 
 import numpy as np
 import pandas as pd
@@ -19,13 +18,14 @@ from udp_req import udp_send, udp_server
 # MODEL_PORT = 10652
 DATA_PORT = 10652
 
-FILE_NAME = "tmp_data/loss0_re_cnn_train.txt"
-DATA_TMP = "tmp_data/loss0_re_cnn_rec.txt"
-ORIGIN_DATA = 'CMAPSSData/train_FD001.txt'
+FILE_NAME = "tmp_data/loss50_re_cnn_train.txt"
+DATA_TMP = "tmp_data/loss50_re_cnn_rec.txt"
+# ORIGIN_DATA = 'CMAPSSData/train_FD001.txt'
+ORIGIN_DATA = 'loss50_train.txt'
 TEST_DATA = 'CMAPSSData/test_FD001.txt'
 RUL_FILE = "CMAPSSData/RUL_FD001.txt"
 TIME_OUT = 3
-MODEL_NAME = "loss0_regression_cnn"
+MODEL_NAME = "loss50_regression_cnn"
 REMAIN_NUM = 35
 
 def root_mean_squared_error(y_true, y_pred):
@@ -160,6 +160,7 @@ def update_data(train_data:pd.DataFrame):
     train_data.loc[train_data[0].isin(tmp_idx)].to_csv(FILE_NAME, sep=' ', header=False,index=False)
 
 def main():
+    os.environ["CUDA_VISIBLE_DEVICES"]="-1"
     start_flag = True
     # initialize data file
     f = open(DATA_TMP,'w')
@@ -195,6 +196,21 @@ def main():
             with open(DATA_TMP,'a') as f:
                 f.write(data.decode('utf-8'))
 
+def fast_train():
+    '''
+    use local file and GPU train the model
+    Pre-transmit the data
+    '''
+    # os.environ["CUDA_VISIBLE_DEVICES"]="-1"
+    tmp_data = pd.read_csv(ORIGIN_DATA, sep=" ",header=None)
+    for i in range(101-REMAIN_NUM):
+        tmp_idx = np.sort(tmp_data[0].unique())[i:REMAIN_NUM+i]
+        tmp_data.loc[tmp_data[0].isin(tmp_idx)].to_csv(FILE_NAME, sep=" ", header=False,index=False)
+        x_train, y_train = data_load()
+        print(x_train.shape)
+        model_version = single_train(x_train, y_train)
+        print(f"Retraining completed. The latest model version is: {model_version}")
+
 def model_train():
     x_train, y_train = data_load(file_name=ORIGIN_DATA)
     model_version = single_train(x_train, y_train)
@@ -219,7 +235,8 @@ def model_eva():
 if __name__ == "__main__":
     # Tracking the mysql database
     mlflow.set_tracking_uri("http://localhost:5000")
-    main()
+    # main()
+    fast_train()
     # model_train()
     # model_eva()
 
