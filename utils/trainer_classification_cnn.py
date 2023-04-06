@@ -7,6 +7,7 @@ from tensorflow import keras
 # from tensorflow.keras import layers
 from sklearn import preprocessing
 from sklearn.metrics import classification_report, confusion_matrix
+import optparse
 
 import mlflow
 
@@ -15,15 +16,27 @@ from udp_req import udp_send, udp_server
 # MODEL_PORT = 9768
 DATA_PORT = 9861
 
-FILE_NAME = "tmp_data/loss50_cl_cnn_train.txt"
-DATA_TMP = "tmp_data/loss50_cl_cnn_rec.txt"
+def get_options():
+    optParse = optparse.OptionParser()
+    optParse.add_option("-l","--loss",default="30",type=str,help="loss_rate")
+    optParse.add_option("-f","--file",default="FD001",type=str,help="trainning dataset")
+    options, args = optParse.parse_args()
+    return options
+
+options = get_options()
+
+
+FILE_NAME = "tmp_data/"+ options.file + "/loss" + options.loss +  "_cl_cnn_train.txt"
+DATA_TMP = "tmp_data/"+ options.file + "/loss" + options.loss +  "_cl_cnn_rec.txt"
 # ORIGIN_DATA = 'CMAPSSData/train_FD001.txt'
-ORIGIN_DATA = 'loss50_train.txt'
-TEST_DATA = 'CMAPSSData/test_FD001.txt'
-RUL_FILE = "CMAPSSData/RUL_FD001.txt"
+ORIGIN_DATA = "train_data/" + options.file + "/loss" + options.loss +  "_train.txt"
+TEST_DATA = "CMAPSSData/test_" + options.file + ".txt"
+RUL_FILE = "CMAPSSData/RUL_" + options.file + ".txt"
 TIME_OUT = 3
-MODEL_NAME = "loss50_classification_cnn"
+MODEL_NAME = "loss" + options.loss +  "_classification_cnn"
 REMAIN_NUM = 35
+
+print(ORIGIN_DATA)
 
 def single_train(x_train,y_train):
     client = mlflow.tracking.MlflowClient()
@@ -194,7 +207,7 @@ def fast_train():
     use local file and GPU train the model
     Pre-transmit the data
     '''
-    # os.environ["CUDA_VISIBLE_DEVICES"]="-1"
+    os.environ["CUDA_VISIBLE_DEVICES"]="-1"
     tmp_data = pd.read_csv(ORIGIN_DATA, sep=" ",header=None)
     for i in range(101-REMAIN_NUM):
         tmp_idx = np.sort(tmp_data[0].unique())[i:REMAIN_NUM+i]

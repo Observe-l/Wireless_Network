@@ -2,3 +2,5 @@
 CMAPSSData/*
 __pycache__/
 tmp_data/
+result/
+train_data/
