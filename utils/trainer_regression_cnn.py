@@ -23,6 +23,7 @@ def get_options():
     optParse = optparse.OptionParser()
     optParse.add_option("-l","--loss",default="30",type=str,help="loss_rate")
     optParse.add_option("-f","--file",default="FD001",type=str,help="trainning dataset")
+    optParse.add_option("-g","--gpu",default="0",type=int,help="trainning dataset")
     options, args = optParse.parse_args()
     return options
 
@@ -36,7 +37,7 @@ ORIGIN_DATA = "train_data/" + options.file + "/loss" + options.loss +  "_train.t
 TEST_DATA = "CMAPSSData/test_" + options.file + ".txt"
 RUL_FILE = "CMAPSSData/RUL_" + options.file + ".txt"
 TIME_OUT = 3
-MODEL_NAME = "loss" + options.loss +  "_regression_cnn"
+MODEL_NAME = options.file + "_loss" + options.loss +  "_regression_cnn"
 REMAIN_NUM = 35
 
 print(ORIGIN_DATA)
@@ -155,6 +156,10 @@ def data_load(file_name:str = FILE_NAME, sequence_length=25, model_test:bool = F
     sensor_cols = ['s' + str(i) for i in range(1,22)]
     sequence_cols = ['setting1', 'setting2', 'setting3','cycle']
     sequence_cols.extend(sensor_cols)
+    
+    tmp_drop_id = [drop_id for drop_id in train_df['id'].unique() if train_df[train_df['id']==drop_id].shape[0]<=sequence_length]
+    train_df = train_df[~train_df['id'].isin(tmp_drop_id)]
+
     # generator for the training sequences
     seq_gen = (list(gen_sequence(train_df[train_df['id']==id], sequence_length, sequence_cols)) 
             for id in train_df['id'].unique())
@@ -214,9 +219,12 @@ def fast_train():
     use local file and GPU train the model
     Pre-transmit the data
     '''
-    os.environ["CUDA_VISIBLE_DEVICES"]="-1"
+    if options.gpu == 0:
+        os.environ["CUDA_VISIBLE_DEVICES"]="-1"
+    else:
+        pass
     tmp_data = pd.read_csv(ORIGIN_DATA, sep=" ",header=None)
-    for i in range(101-REMAIN_NUM):
+    for i in range(250-REMAIN_NUM):
         tmp_idx = np.sort(tmp_data[0].unique())[i:REMAIN_NUM+i]
         tmp_data.loc[tmp_data[0].isin(tmp_idx)].to_csv(FILE_NAME, sep=" ", header=False,index=False)
         x_train, y_train = data_load()

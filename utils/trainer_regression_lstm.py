@@ -12,8 +12,6 @@ import socket
 import json
 import pickle
 import optparse
-import optparse
-
 
 from udp_req import udp_send, udp_server
 
@@ -38,7 +36,7 @@ ORIGIN_DATA = "train_data/" + options.file + "/loss" + options.loss +  "_train.t
 TEST_DATA = "CMAPSSData/test_" + options.file + ".txt"
 RUL_FILE = "CMAPSSData/RUL_" + options.file + ".txt"
 TIME_OUT = 3
-MODEL_NAME = "loss" + options.loss +  "_regression_lstm"
+MODEL_NAME = options.file + "_loss" + options.loss +  "_regression_lstm"
 REMAIN_NUM = 35
 
 print(ORIGIN_DATA)
@@ -215,7 +213,7 @@ def fast_train():
     '''
     os.environ["CUDA_VISIBLE_DEVICES"]="-1"
     tmp_data = pd.read_csv(ORIGIN_DATA, sep=" ",header=None)
-    for i in range(101-REMAIN_NUM):
+    for i in range(250-REMAIN_NUM):
         tmp_idx = np.sort(tmp_data[0].unique())[i:REMAIN_NUM+i]
         tmp_data.loc[tmp_data[0].isin(tmp_idx)].to_csv(FILE_NAME, sep=" ", header=False,index=False)
         x_train, y_train = data_load()

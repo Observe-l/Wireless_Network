@@ -106,6 +106,10 @@ def data_load(file_name:str = FILE_NAME, sequence_length=25, model_test:bool = F
     sensor_cols = ['s' + str(i) for i in range(1,22)]
     sequence_cols = ['setting1', 'setting2', 'setting3','cycle']
     sequence_cols.extend(sensor_cols)
+    
+    tmp_drop_id = [drop_id for drop_id in train_df['id'].unique() if train_df[train_df['id']==drop_id].shape[0]<=sequence_length]
+    train_df = train_df[~train_df['id'].isin(tmp_drop_id)]
+
     # generator for the training sequences
     seq_gen = (list(gen_sequence(train_df[train_df['id']==id], sequence_length, sequence_cols)) 
             for id in train_df['id'].unique())
@@ -126,7 +130,7 @@ def main():
     model_type = ["classification_","regression_"]
     algo_type = ["dnn","cnn","lstm","bilstm"]
 
-    model_name = "loss" + options.loss + "_" + model_type[options.model] + algo_type[options.algo]
+    model_name = options.file + "_loss" + options.loss + "_" + model_type[options.model] + algo_type[options.algo]
     result = []
     model_version = int(client.get_latest_versions(name=model_name,stages=['Production'])[0].version)
     result_file = "result/"+ options.file + "/" + model_name + ".p"
