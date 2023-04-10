@@ -23,7 +23,8 @@ def get_options():
     optParse = optparse.OptionParser()
     optParse.add_option("-l","--loss",default="30",type=str,help="loss_rate")
     optParse.add_option("-f","--file",default="FD001",type=str,help="trainning dataset")
-    optParse.add_option("-g","--gpu",default="0",type=int,help="trainning dataset")
+    optParse.add_option("-g","--gpu",default="0",type=int,help="using gpu")
+    optParse.add_option("-w","--window",default="35",type=int,help="size of slide window")
     options, args = optParse.parse_args()
     return options
 
@@ -37,15 +38,17 @@ ORIGIN_DATA = "train_data/" + options.file + "/loss" + options.loss +  "_train.t
 TEST_DATA = "CMAPSSData/test_" + options.file + ".txt"
 RUL_FILE = "CMAPSSData/RUL_" + options.file + ".txt"
 TIME_OUT = 3
-MODEL_NAME = options.file + "_loss" + options.loss +  "_regression_cnn"
-REMAIN_NUM = 35
+MODEL_NAME = options.file + "_loss" + options.loss +  "_regression_cnn_window" + str(options.window)
+REMAIN_NUM = options.window
 
 print(ORIGIN_DATA)
+
+eva_result = []
 
 def root_mean_squared_error(y_true, y_pred):
         return K.sqrt(K.mean(K.square(y_pred - y_true))) 
 
-def single_train(x_train,y_train):
+def single_train(x_train,y_train,test_data):
     client = mlflow.tracking.MlflowClient()
     mlflow.set_experiment("Regression Evaluate")
 
@@ -78,6 +81,8 @@ def single_train(x_train,y_train):
         # mlflow.sklearn.log_model(model,"model")
         # score = model.evaluate(x_test, y_test, verbose=0)
         # score = -history.history['accuracy'][-1]
+        eva_result.append(model.predict(test_data))
+
     result = mlflow.register_model(
         f"runs:/{run_id}/model",
         MODEL_NAME
@@ -224,13 +229,25 @@ def fast_train():
     else:
         pass
     tmp_data = pd.read_csv(ORIGIN_DATA, sep=" ",header=None)
-    for i in range(250-REMAIN_NUM):
+    test_data, test_label = data_load(file_name=TEST_DATA,model_test=True)
+    result_file = "result/"+ options.file + "/" + MODEL_NAME + ".p"
+
+    if options.file == 'FD001' or options.file == 'FD003':
+        i_set = [0,10,20,30,40]
+    elif options.file == 'FD002':
+        i_set = [0,40,80,120,160]
+    else:
+        i_set = [0,40,80,120,160]
+
+    for i in i_set:
         tmp_idx = np.sort(tmp_data[0].unique())[i:REMAIN_NUM+i]
         tmp_data.loc[tmp_data[0].isin(tmp_idx)].to_csv(FILE_NAME, sep=" ", header=False,index=False)
         x_train, y_train = data_load()
         print(x_train.shape)
-        model_version = single_train(x_train, y_train)
+        model_version = single_train(x_train, y_train,test_data)
         print(f"Retraining completed. The latest model version is: {model_version}")
+    
+    pickle.dump(eva_result,open(result_file,'wb'))
 
 def model_train():
     x_train, y_train = data_load(file_name=ORIGIN_DATA)
